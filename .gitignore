@@ -1,0 +1,3 @@
+# .gitignore 파일 안에 추가
+api-key/openapi.env
+.env
