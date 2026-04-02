@@ -78,6 +78,12 @@ class LLMHandler:
             repetition_penalty=1.15,
             do_sample=True,
         )
+        
+    def set_prompt_version(self, version):
+        """프롬프트 버전 동적 변경 (모델 재로드 방지)"""
+        self.prompt_version = version
+        print(f"   🔄 프롬프트 버전이 '{version}'(으)로 변경되었습니다.")
+        self.reset_conversation()
     
     def get_system_prompt(self):
         """버전별 시스템 프롬프트"""
@@ -187,12 +193,15 @@ def compare_versions():
     
     results = {}
     
+    print(f"\n⏳ LLM 모델 초기 로딩 (1회만 수행)...")
+    llm = LLMHandler(prompt_version="A")
+    
     for version in ["A", "B", "C"]:
         print(f"\n{'='*70}")
         print(f"버전 {version} 테스트 중...")
         print("="*70)
         
-        llm = LLMHandler(prompt_version=version)
+        llm.set_prompt_version(version)
         results[version] = []
         
         for i, question in enumerate(test_cases, 1):

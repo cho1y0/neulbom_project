@@ -12,6 +12,7 @@ Microsoft Edge의 다양한 한국어 음성 지원
 import os
 import asyncio
 import re
+import tempfile
 import shutil
 
 
@@ -184,7 +185,16 @@ class EdgeTTSHandler:
     # -------------------------
     async def _speak_async(self, text, save_to_file=None):
         """비동기 음성 생성"""
-        filename = self._resolve_filename(save_to_file)
+        is_temp_file = not save_to_file
+        temp_file_obj = None
+
+        if is_temp_file:
+            # 고유한 임시 파일 생성
+            temp_file_obj = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+            filename = temp_file_obj.name
+            temp_file_obj.close()  # 파일을 닫아 edge-tts가 쓸 수 있도록 함
+        else:
+            filename = self._resolve_filename(save_to_file)
 
         # 경로 폴더 생성
         out_dir = os.path.dirname(filename)
@@ -207,7 +217,7 @@ class EdgeTTSHandler:
 
         self._play_audio(filename)
 
-        if not save_to_file and os.path.exists(filename):
+        if is_temp_file and os.path.exists(filename):
             try:
                 os.remove(filename)
             except Exception:
@@ -219,7 +229,7 @@ class EdgeTTSHandler:
             if save_to_file.endswith(".wav"):
                 return save_to_file.replace(".wav", ".mp3")
             return save_to_file
-        return "./temp_edge_tts.mp3"
+        return "./temp_edge_tts.mp3"  # 이 경로는 is_temp_file=False일 때만 참조됨
 
     def _preprocess_text(self, text: str) -> str:
         """

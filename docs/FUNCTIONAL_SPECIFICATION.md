@@ -64,7 +64,7 @@
 | 필드명 | 타입 | 필수 | 검증 규칙 | 설명 |
 |--------|------|------|-----------|------|
 | `guardian.username` | string | Y | 영문/숫자, 중복 불가 | 보호자 로그인 아이디 |
-| `guardian.password` | string | Y | - | 비밀번호 (평문 저장) |
+| `guardian.password` | string | Y | 최소 8자, 영문/숫자/특수문자 | 비밀번호 (bcrypt 등 해시 암호화 저장) |
 | `guardian.name` | string | Y | - | 보호자 이름 |
 | `guardian.phone` | string | Y | 전화번호 형식 | 보호자 연락처 |
 | `guardian.zipcode` | string | Y | 5자리 숫자 | 우편번호 |
@@ -136,8 +136,8 @@
 
 ### 2.3 처리 로직
 
-1. `tb_guardian`에서 `user_id`와 `password`가 일치하는 레코드를 조회한다.
-2. 일치하는 레코드가 없으면 401 에러를 반환한다.
+1. `tb_guardian`에서 `user_id`로 사용자 레코드를 조회한다.
+2. 레코드가 없거나 입력된 `password`의 해시 검증에 실패하면 401 에러를 반환한다.
 3. 보호자 정보를 응답 객체에 매핑한다 (`username`, `name`, `phone`, `zipcode`, `address`, `addressDetail`).
 4. `tb_senior`에서 해당 `guardian_id`로 어르신 정보를 조회한다.
 5. 어르신이 존재하면 생년월일을 `birthYear`, `birthMonth`, `birthDay`로 분리하고, 성별을 `male`/`female`로 변환하여 매핑한다.
@@ -246,9 +246,9 @@
 
 ### 4.3 처리 로직
 
-1. `tb_guardian`에서 `user_id`와 `password`가 일치하는 레코드를 조회한다.
-2. 일치하지 않으면 400 에러를 반환한다 ("현재 비밀번호가 일치하지 않습니다").
-3. 일치하면 `password` 컬럼을 `newPassword` 값으로 UPDATE한다.
+1. `tb_guardian`에서 `user_id`로 레코드를 조회하고 저장된 해시값과 `currentPassword`를 비교 검증한다.
+2. 해시 검증이 실패하면 400 에러를 반환한다 ("현재 비밀번호가 일치하지 않습니다").
+3. 일치하면 `password` 컬럼을 `newPassword`의 해시값으로 UPDATE한다.
 4. 트랜잭션을 COMMIT한다.
 
 ### 4.4 출력
@@ -888,7 +888,7 @@ Edge TTS에서 지원하는 한국어 음성은 다음과 같다.
 |--------|------|-----------|------|
 | `guardian_id` | INT | PK, AUTO_INCREMENT | 보호자 고유 ID |
 | `user_id` | VARCHAR | UNIQUE, NOT NULL | 로그인 아이디 |
-| `password` | VARCHAR | NOT NULL | 비밀번호 (평문) |
+| `password` | VARCHAR | NOT NULL | 비밀번호 (bcrypt 해시 암호화) |
 | `name` | VARCHAR | NOT NULL | 이름 |
 | `phone` | VARCHAR | - | 연락처 |
 | `post_num` | VARCHAR | - | 우편번호 |

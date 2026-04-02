@@ -5,6 +5,7 @@ from flask_cors import CORS
 import os
 import tempfile
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from analyzer import SpeechAnalyzer
 from llm_handler_with_qa_v2 import LLMHandler
 from db_handler import VoiceDBHandler
@@ -62,6 +63,9 @@ def signup():
     cursor = conn.cursor()
 
     try:
+        # 비밀번호 해시 암호화
+        hashed_password = generate_password_hash(data['guardian']['password'])
+
         # 1. 보호자 저장
         sql_guardian = """
             INSERT INTO tb_guardian 
@@ -70,7 +74,7 @@ def signup():
         """
         cursor.execute(sql_guardian, (
             data['guardian']['username'],
-            data['guardian']['password'],
+            hashed_password,
             data['guardian']['name'],
             data['guardian']['phone'],
             data['guardian']['zipcode'],
@@ -133,11 +137,12 @@ def login():
     cursor = conn.cursor()
     
     try:
-        # 1. 보호자 조회
-        cursor.execute("SELECT * FROM tb_guardian WHERE user_id = %s AND password = %s", (username, password))
+        # 1. 보호자 아이디로만 우선 조회
+        cursor.execute("SELECT * FROM tb_guardian WHERE user_id = %s", (username,))
         guardian = cursor.fetchone()
         
-        if not guardian:
+        # 비밀번호 해시 검증
+        if not guardian or not check_password_hash(guardian.get('password', guardian[2] if isinstance(guardian, tuple) else ''), password):
             return jsonify({"error": "로그인 실패"}), 401
 
         # 딕셔너리 변환 (안전장치)
@@ -547,17 +552,20 @@ def change_password():
     cursor = conn.cursor()
     
     try:
-        # 1. 현재 비밀번호가 맞는지 DB에서 확인
-        sql_check = "SELECT * FROM tb_guardian WHERE user_id = %s AND password = %s"
-        cursor.execute(sql_check, (user_id, current_pw))
+        # 1. 사용자 조회 및 현재 비밀번호 해시 검증
+        sql_check = "SELECT * FROM tb_guardian WHERE user_id = %s"
+        cursor.execute(sql_check, (user_id,))
         user = cursor.fetchone()
         
-        if not user:
+        if not user or not check_password_hash(user.get('password', user[2] if isinstance(user, tuple) else ''), current_pw):
             return jsonify({"error": "현재 비밀번호가 일치하지 않습니다."}), 400
 
-        # 2. 맞다면 새 비밀번호로 업데이트!
+        # 2. 새 비밀번호 해시 암호화
+        hashed_new_pw = generate_password_hash(new_pw)
+
+        # 3. 새 비밀번호로 업데이트!
         sql_update = "UPDATE tb_guardian SET password = %s WHERE user_id = %s"
-        cursor.execute(sql_update, (new_pw, user_id))
+        cursor.execute(sql_update, (hashed_new_pw, user_id))
         conn.commit()
         
         print(f"🔐 비밀번호 변경 완료: {user_id}")
